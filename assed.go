@@ -214,7 +214,7 @@ func main() {
 				regex := regexp.MustCompile("[0-9]+$")
 				name = regex.ReplaceAllString(name, "")
 
-				if match, _ := regexp.MatchString(release, name); match {
+				if match, _ := regexp.MatchString("(?i)"+release, name); match {
 					oneHit = true
 					fmt.Printf("matched release %s ... ", name)
 
