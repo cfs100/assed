@@ -1,10 +1,10 @@
-CREATE TABLE shows (
+CREATE TABLE IF NOT EXISTS shows (
   id integer primary key,
   name string not null,
   last integer null
 );
 
-CREATE TABLE episodes (
+CREATE TABLE IF NOT EXISTS episodes (
   id integer primary key,
   show integer not null,
   name string not null,
@@ -12,7 +12,7 @@ CREATE TABLE episodes (
   date integer not null
 );
 
-CREATE TABLE ignored (
+CREATE TABLE IF NOT EXISTS ignored (
   name string primary key,
   date integer not null
 );
