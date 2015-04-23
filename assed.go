@@ -44,13 +44,13 @@ var releases = []string{
 func start() {
 	fmt.Print("Starting ASSED\n\n")
 
-	initDB()
-
-	hostname, _ := os.Hostname()
-
 	if hostname == "assed" {
 		dir = "/var/lib/assed/"
 	}
+
+	initDB()
+
+	hostname, _ := os.Hostname()
 
 	os.MkdirAll(dir+"databases", 0755)
 	os.MkdirAll(dir+"subtitles", 0755)
