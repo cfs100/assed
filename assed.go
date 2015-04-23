@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 	"time"
 
 	"code.google.com/p/go-sqlite/go1/sqlite3"
@@ -56,6 +57,7 @@ func start() {
 	os.MkdirAll(dir+"subtitles", 0755)
 	os.MkdirAll(dir+"downloads", 0755)
 	os.MkdirAll(dir+"completed", 0755)
+	os.MkdirAll(dir+"finalized", 0755)
 	fmt.Println("- Directories OK")
 
 	getShows()
@@ -184,6 +186,59 @@ func getSRT(url string) []byte {
 	return srt
 }
 
+func moveCompleted(path string, level int) bool {
+	files, _ := ioutil.ReadDir(path)
+	for _, f := range files {
+		if f.IsDir() {
+			return moveCompleted(fmt.Sprintf("%s/%s", path, f.Name()), level+1)
+		} else {
+			regex := regexp.MustCompile("(?i)^(.+)\\.(mkv|avi|mp4|mpe?g)$")
+			if regex.MatchString(f.Name()) {
+				extension := regex.ReplaceAllString(f.Name(), "$2")
+				filename := regex.ReplaceAllString(f.Name(), "$1")
+
+				regex = regexp.MustCompile("[ .]+")
+				filename = regex.ReplaceAllString(filename, ".")
+
+				if subtitle := findSubtitle(filename + ".srt"); subtitle != "" {
+					destPath := dir + "finalized"
+
+					err := os.Rename(
+						fmt.Sprintf("%s/%s", path, f.Name()),
+						fmt.Sprintf("%s/%s.%s", destPath, filename, extension))
+
+					if err == nil {
+						os.Rename(subtitle, fmt.Sprintf("%s/%s.%s", destPath, filename, "srt"))
+
+						if level > 0 {
+							os.RemoveAll(path)
+						}
+
+						return true
+					}
+				}
+
+				break
+			}
+		}
+	}
+
+	return false
+}
+
+func findSubtitle(filename string) string {
+	path := dir + "subtitles"
+	files, _ := ioutil.ReadDir(path)
+
+	for _, f := range files {
+		if strings.EqualFold(filename, f.Name()) {
+			return fmt.Sprintf("%s/%s", path, f.Name())
+		}
+	}
+
+	return ""
+}
+
 func main() {
 	start()
 
@@ -232,6 +287,9 @@ func main() {
 						continue
 					}
 
+					regex = regexp.MustCompile("[ .]+")
+					name = regex.ReplaceAllString(name, ".")
+
 					err := ioutil.WriteFile(fmt.Sprintf(dir+"subtitles/%s.srt", name), srt, 0644)
 					if err != nil {
 						log.Fatalf("Unable to save subtitle file: %s", err.Error())
@@ -259,6 +317,8 @@ func main() {
 			fmt.Println("no release matched this episode")
 		}
 	}
+
+	moveCompleted(dir+"completed", 0)
 
 	fmt.Print("\n")
 	fmt.Printf("Finished... Items processed: %d\n", count)
