@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"regexp"
 	"time"
 
@@ -237,6 +238,8 @@ func main() {
 
 					db.Exec("INSERT INTO episodes (show, name, magnet, date) VALUES (?, ?, ?, ?)",
 						shows[item.Show], item.Title, magnet, time.Now().Unix())
+
+					exec.Command("transmission-remote", "-a", magnet).Run()
 
 					count++
 					fmt.Println("OK")
