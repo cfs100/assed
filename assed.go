@@ -186,11 +186,11 @@ func getSRT(url string) []byte {
 	return srt
 }
 
-func moveCompleted(path string, level int) bool {
+func moveCompleted(path string, level int) {
 	files, _ := ioutil.ReadDir(path)
 	for _, f := range files {
 		if f.IsDir() {
-			return moveCompleted(fmt.Sprintf("%s/%s", path, f.Name()), level+1)
+			moveCompleted(fmt.Sprintf("%s/%s", path, f.Name()), level+1)
 		} else {
 			regex := regexp.MustCompile("(?i)^(.+)\\.(mkv|avi|mp4|mpe?g)$")
 			if regex.MatchString(f.Name()) {
@@ -213,17 +213,13 @@ func moveCompleted(path string, level int) bool {
 						if level > 0 {
 							os.RemoveAll(path)
 						}
-
-						return true
 					}
 				}
 
-				break
+				return
 			}
 		}
 	}
-
-	return false
 }
 
 func findSubtitle(filename string) string {
