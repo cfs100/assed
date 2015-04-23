@@ -203,10 +203,13 @@ func main() {
 		}
 
 	Releases:
-		for _, node := range content.Find("table tbody td:first-child a").Nodes {
-			link := goquery.NewDocumentFromNode(node)
-			for _, release := range releases {
+		for _, release := range releases {
+			for _, node := range content.Find("table tbody td:first-child a").Nodes {
+				link := goquery.NewDocumentFromNode(node)
 				name := link.Text()
+
+				regex := regexp.MustCompile("[0-9]+$")
+				name = regex.ReplaceAllString(name, "")
 
 				if match, _ := regexp.MatchString(release, name); match {
 					fmt.Printf("matched release %s ... ", name)
