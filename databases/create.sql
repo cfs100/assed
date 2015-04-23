@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS episodes (
 );
 
 CREATE TABLE IF NOT EXISTS mismatch (
-  name string not null,
+  name string not null primary key,
   show integer not null,
   date integer not null
 );
