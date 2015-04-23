@@ -12,6 +12,12 @@ CREATE TABLE IF NOT EXISTS episodes (
   date integer not null
 );
 
+CREATE TABLE IF NOT EXISTS mismatch (
+  name string not null,
+  show integer not null,
+  date integer not null
+);
+
 CREATE TABLE IF NOT EXISTS ignored (
   name string primary key,
   date integer not null

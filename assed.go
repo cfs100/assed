@@ -203,6 +203,8 @@ func main() {
 			log.Fatalf("Unable to parse subtitles feed content: %s", err.Error())
 		}
 
+		var oneHit bool
+
 	Releases:
 		for _, release := range releases {
 			for _, node := range content.Find("table tbody td:first-child a").Nodes {
@@ -213,6 +215,7 @@ func main() {
 				name = regex.ReplaceAllString(name, "")
 
 				if match, _ := regexp.MatchString(release, name); match {
+					oneHit = true
 					fmt.Printf("matched release %s ... ", name)
 
 					magnet := getMagnet(name)
@@ -247,6 +250,13 @@ func main() {
 					break Releases
 				}
 			}
+		}
+
+		if !oneHit {
+			db.Exec("INSERT INTO mismatch (name, show, date) VALUES (?, ?, ?)",
+				item.Title, shows[item.Show], time.Now().Unix())
+
+			fmt.Println("no release matched this episode")
 		}
 	}
 
