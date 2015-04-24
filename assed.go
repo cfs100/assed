@@ -111,7 +111,7 @@ func getURL(url string) []byte {
 }
 
 func getRSS() Rss {
-	body := getURL("http://feeds.feedburner.com/LegendasFree")
+	body := getURL("http://legendafacil.com/feed/")
 
 	var rss Rss
 	err := xml.Unmarshal(body, &rss)
