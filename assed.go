@@ -37,9 +37,9 @@ var (
 )
 
 var releases = []string{
-	"720p.*-(DIMENSION|KILLERS|IMMERSE|2HD)",
+	"720p.*-(DIMENSION|KILLERS|IMMERSE|2HD|FiHTV)",
 	"720p.*-(ASAP)",
-	"-(LOL|KILLERS|ASAP|2HD)",
+	"-(LOL|KILLERS|ASAP|2HD|FiHTV)",
 }
 
 func start() {
