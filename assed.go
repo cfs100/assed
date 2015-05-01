@@ -24,10 +24,11 @@ type Rss struct {
 }
 
 type Subtitle struct {
-	Show    string `xml:"category"`
-	Title   string `xml:"title"`
-	Date    string `xml:"pubDate"`
-	Content string `xml:"encoded"`
+	Show       string
+	Categories []string `xml:"category"`
+	Title      string   `xml:"title"`
+	Date       string   `xml:"pubDate"`
+	Content    string   `xml:"encoded"`
 }
 
 var (
@@ -123,7 +124,14 @@ func getRSS() Rss {
 }
 
 func needDownload(item Subtitle) bool {
-	if shows[item.Show] == 0 {
+	for _, category := range item.Categories {
+		if shows[category] == 0 {
+			item.Show = category
+			break
+		}
+	}
+
+	if item.Show == "" {
 		fmt.Println("not on the list")
 		db.Exec("INSERT INTO ignored (name, date) VALUES (?, ?)", item.Title, time.Now().Unix())
 
