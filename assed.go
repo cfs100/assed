@@ -125,7 +125,7 @@ func getRSS() Rss {
 
 func needDownload(item Subtitle) bool {
 	for _, category := range item.Categories {
-		if shows[category] == 0 {
+		if shows[category] != 0 {
 			item.Show = category
 			break
 		}
