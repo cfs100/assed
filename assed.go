@@ -27,8 +27,8 @@ type Subtitle struct {
 	Show       string
 	Categories []string `xml:"category"`
 	Title      string   `xml:"title"`
-	Date       string   `xml:"pubDate"`
 	Content    string   `xml:"encoded"`
+	Dom        *goquery.Selection
 }
 
 var (
@@ -38,9 +38,9 @@ var (
 )
 
 var releases = []string{
-	"720p.*-(DIMENSION|KILLERS|IMMERSE|2HD|FiHTV|DHD)",
-	"720p.*-(ASAP)",
-	"-(LOL|KILLERS|ASAP|2HD|FiHTV)",
+	"(720p.*)[-.](DIMENSION|KILLERS|IMMERSE|2HD|FiHTV|DHD)",
+	"(720p.*)[-.](ASAP)",
+	"(.*)[-.](LOL|KILLERS|ASAP|2HD|FiHTV)",
 }
 
 func start() {
@@ -243,83 +243,148 @@ func findSubtitle(filename string) string {
 	return ""
 }
 
-func main() {
-	start()
+func parseSubtitlePage(url string) Subtitle {
+	var item Subtitle
 
-	rss := getRSS()
-	var count int
+	body := getURL(url)
 
-	for _, item := range rss.Subtitles {
-		fmt.Printf("%s ... ", item.Title)
+	r := bytes.NewReader(body)
+	content, err := goquery.NewDocumentFromReader(r)
+	if err != nil {
+		log.Fatalf("Unable to parse subtitle page: %s", err.Error())
+	}
 
-		if !needDownload(item) {
-			continue
-		}
+	item.Title = content.Find("h1").Text()
 
+	for _, category := range content.Find(".item-cat a").Nodes {
+		node := goquery.NewDocumentFromNode(category)
+		item.Categories = append(item.Categories, node.Text())
+	}
+
+	item.Dom = content.Find(".post_content")
+
+	return item
+}
+
+func (item Subtitle) Download() int {
+	fmt.Printf("%s ... ", item.Title)
+
+	if !needDownload(item) {
+		return 0
+	}
+
+	if item.Dom == nil {
 		r := bytes.NewReader([]byte(item.Content))
 		content, err := goquery.NewDocumentFromReader(r)
 		if err != nil {
 			log.Fatalf("Unable to parse subtitles feed content: %s", err.Error())
 		}
 
-		var oneHit bool
+		item.Dom = content.Find("div")
+	}
 
-	Releases:
-		for _, release := range releases {
-			for _, node := range content.Find("table tbody td:first-child a").Nodes {
-				link := goquery.NewDocumentFromNode(node)
-				name := link.Text()
+	var count int
+	var oneHit bool
 
-				regex := regexp.MustCompile("[0-9]+$")
-				name = regex.ReplaceAllString(name, "")
+Releases:
+	for _, release := range releases {
+		for _, node := range item.Dom.Find("table tbody td:first-child a").Nodes {
+			link := goquery.NewDocumentFromNode(node)
+			name := link.Text()
 
-				if match, _ := regexp.MatchString("(?i)"+release, name); match {
-					oneHit = true
-					fmt.Printf("matched release %s ... ", name)
+			regex := regexp.MustCompile("[0-9]+$")
+			name = regex.ReplaceAllString(name, "")
 
-					magnet := getMagnet(name)
-					if magnet == "" {
-						fmt.Println("magnet not found")
-						continue
-					}
+			regex = regexp.MustCompile("(?i)" + release)
 
-					href, _ := link.Attr("href")
+			if match := regex.MatchString(name); match {
+				oneHit = true
+				fmt.Printf("matched release %s ... ", name)
 
-					srt := getSRT(href)
-					if len(srt) == 0 {
-						fmt.Println("subtitle download failed")
-						continue
-					}
-
-					regex = regexp.MustCompile("[ .]+")
-					name = regex.ReplaceAllString(name, ".")
-
-					err := ioutil.WriteFile(fmt.Sprintf(dir+"subtitles/%s.srt", name), srt, 0644)
-					if err != nil {
-						log.Fatalf("Unable to save subtitle file: %s", err.Error())
-					}
-
-					db.Exec("UPDATE shows SET last = ? WHERE id = ?", time.Now().Unix(), shows[item.Show])
-
-					db.Exec("INSERT INTO episodes (show, name, magnet, date) VALUES (?, ?, ?, ?)",
-						shows[item.Show], item.Title, magnet, time.Now().Unix())
-
-					exec.Command("transmission-remote", "-a", magnet).Run()
-
-					count++
-					fmt.Println("OK")
-
-					break Releases
+				magnet := getMagnet(name)
+				if magnet == "" {
+					fmt.Println("magnet not found")
+					continue
 				}
+
+				href, _ := link.Attr("href")
+
+				srt := getSRT(href)
+				if len(srt) == 0 {
+					fmt.Println("subtitle download failed")
+					continue
+				}
+
+				name = regex.ReplaceAllString(name, "$1-$2")
+
+				regex = regexp.MustCompile("[ .]+")
+				name = regex.ReplaceAllString(name, ".")
+
+				err := ioutil.WriteFile(fmt.Sprintf(dir+"subtitles/%s.srt", name), srt, 0644)
+				if err != nil {
+					log.Fatalf("Unable to save subtitle file: %s", err.Error())
+				}
+
+				db.Exec("UPDATE shows SET last = ? WHERE id = ?", time.Now().Unix(), shows[item.Show])
+
+				db.Exec("INSERT INTO episodes (show, name, magnet, date) VALUES (?, ?, ?, ?)",
+					shows[item.Show], item.Title, magnet, time.Now().Unix())
+
+				exec.Command("transmission-remote", "-a", magnet).Run()
+
+				count++
+				fmt.Println("OK")
+
+				break Releases
 			}
 		}
+	}
 
-		if !oneHit {
-			db.Exec("INSERT INTO mismatch (name, show, date) VALUES (?, ?, ?)",
-				item.Title, shows[item.Show], time.Now().Unix())
+	if !oneHit {
+		db.Exec("INSERT INTO mismatch (name, show, date) VALUES (?, ?, ?)",
+			item.Title, shows[item.Show], time.Now().Unix())
 
-			fmt.Println("no release matched this episode")
-		}
+		fmt.Println("no release matched this episode")
+	}
+
+	return count
+}
+
+func processFromRSS() int {
+	rss := getRSS()
+	var count int
+
+	for _, item := range rss.Subtitles {
+		count += item.Download()
+	}
+
+	return count
+}
+
+func processFromURL(url string) int {
+	item := parseSubtitlePage(url)
+	if item.Title == "" {
+		log.Printf("Unable to process subtitle URL: %s", url)
+		return 0
+	}
+
+	return item.Download()
+}
+
+func main() {
+	start()
+
+	var url string
+	var count int
+
+	if len(os.Args) > 1 {
+		url = strings.TrimSpace(os.Args[1])
+	}
+
+	if url != "" {
+		count = processFromURL(url)
+	} else {
+		count = processFromRSS()
 	}
 
 	moveCompleted(dir+"completed", 0)
