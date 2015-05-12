@@ -131,6 +131,10 @@ func needDownload(item Subtitle) bool {
 		}
 	}
 
+	if item.Show == "" && len(os.Args) >= 3 {
+		item.Show = strings.TrimSpace(os.Args[2])
+	}
+
 	if item.Show == "" {
 		fmt.Println("not on the list")
 		db.Exec("INSERT INTO ignored (name, date) VALUES (?, ?)", item.Title, time.Now().Unix())
